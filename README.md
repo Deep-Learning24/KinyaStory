@@ -11,7 +11,7 @@ the model gains exposure to varied storytelling styles, themes, and lengths, fos
 and preventing biases. This comprehensive dataset composition aims to train a robust text generation model capable of producing engaging and coherent narratives across a wide spectrum of scenarios.
 
 
-## 4. Baseline Model
+## 2. Baseline Model
 
 We use a Transformer (Vaswani et al., 2017) based architecture for our LMs. 
 The model largely follows the details of the OpenAI GPT model (Radford et al., 2018)
@@ -24,7 +24,7 @@ where N is the number of residual layers. The vocabulary is expanded to 50,257.
 Wealso increase the context size from 512 to 1024 tokens and a larger batchsize of 512 is used.
 
 
-## 6. Deliverables
+## 3. Deliverables
 
 The project will deliver the following outcomes:
 
