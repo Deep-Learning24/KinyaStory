@@ -1,7 +1,7 @@
 # PROJECT: Storytelling Model for Kinyarwanda Language
 
 ## 1. 
-Train and test the GPT-2 model on the ROCstories dataset. 
+We trained and tested the GPT-2 model on the ROCstories dataset. 
 The dataset comprises three key components: ROCStories winter 2017,
 ROCStories spring 2016, and the Story Cloze Test Winter 2018 (excluding validation)
 These datasets offer a diverse range of complete five-sentence stories
