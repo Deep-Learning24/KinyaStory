@@ -1,5 +1,12 @@
 # PROJECT: Storytelling Model for Kinyarwanda Language
 
+## 0.
+To get started, clone the repository and install the required dependencies using the following commands:
+
+
+```bash
+python setup.py
+```
 ## 1. 
 We trained and tested the GPT-2 model on the ROCstories dataset. 
 The dataset comprises three key components: ROCStories winter 2017,
