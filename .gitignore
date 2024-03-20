@@ -10,3 +10,8 @@
 /tokenized_data/
 /wandb/
 /gpt2_story_generator.pth
+/tokenized_data
+/tokenizer.json
+/tokenizer_config.json
+tokenized_data.pt
+vocab.txt

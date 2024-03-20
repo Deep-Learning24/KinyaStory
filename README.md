@@ -1,5 +1,13 @@
 # Project Proposal: Storytelling Model in Kinyarwanda Language
 
+### Getting started
+
+To get started with the project, you need to install the required packages. You can do this by executing the following script:
+
+```bash
+python setup.py
+```
+
 ## 1. Introduction
 
 Preserving traditional cultural narratives is essential amid modernization. While technology can pose a threat to some cultural aspects, it also offers opportunities for creative arts, precisely generative art. This work introduces a Deep Learning model tailored for storytelling in Kinyarwanda language. We propose building a text-generating model aiming at preserving Rwandan heritage. Using deep learning methodologies, our aim is to capture and replicate the essence of the old written narratives, ensuring that this cherished art form endures for generations to come.
