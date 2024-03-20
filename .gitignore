@@ -1,0 +1,12 @@
+/__pycache__
+/.ipynb_checkpoints
+
+/GPT2/pynb_checkpoints/
+/GPT2/__pycache__
+/GPT2/.ipynb_checkpoints
+/Kinyastory_data/
+/Kinyastory_data/__pycache__
+/rocStoriesData/
+/tokenized_data/
+/wandb/
+/gpt2_story_generator.pth
