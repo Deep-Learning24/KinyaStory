@@ -1,40 +1,30 @@
-# Project Proposal: Storytelling Model in Kinyarwanda Language
+# PROJECT: Storytelling Model for Kinyarwanda Language
 
-### Getting started
+## 1. 
+We trained and tested the GPT-2 model on the ROCstories dataset. 
+The dataset comprises three key components: ROCStories winter 2017,
+ROCStories spring 2016, and the Story Cloze Test Winter 2018 (excluding validation)
+These datasets offer a diverse range of complete five-sentence stories
+and scenario-based tests, providing rich narrative contexts and challenging the model’s
+comprehension abilities. By combining stories from different seasons and formats, 
+the model gains exposure to varied storytelling styles, themes, and lengths, fostering adaptability
+and preventing biases. This comprehensive dataset composition aims to train a robust text generation model capable of producing engaging and coherent narratives across a wide spectrum of scenarios.
 
-To get started with the project, you need to install the required packages. You can do this by executing the following script:
 
-```bash
-python setup.py
-```
+## 2. Baseline Model
 
-## 1. Introduction
+We use a Transformer (Vaswani et al., 2017) based architecture for our LMs. 
+The model largely follows the details of the OpenAI GPT model (Radford et al., 2018)
+with a few modifications. Layer normalization (Ba et al., 2016) was moved to the input
+of each sub-block, similar to a pre-activation residual network (He et al., 2016) and an
+additional layer normalization was added after the final selfattention block. A modified 
+initialization which accountsfor the accumulation on the residual path with model depth
+is used. We scale the weights of residual layers at initialization by a factor of 1/√N 
+where N is the number of residual layers. The vocabulary is expanded to 50,257. 
+Wealso increase the context size from 512 to 1024 tokens and a larger batchsize of 512 is used.
 
-Preserving traditional cultural narratives is essential amid modernization. While technology can pose a threat to some cultural aspects, it also offers opportunities for creative arts, precisely generative art. This work introduces a Deep Learning model tailored for storytelling in Kinyarwanda language. We propose building a text-generating model aiming at preserving Rwandan heritage. Using deep learning methodologies, our aim is to capture and replicate the essence of the old written narratives, ensuring that this cherished art form endures for generations to come.
 
-## 2. Literature Review
-
-The work of researchers from Eindhoven University of Technology and the University of Amsterdam in the Netherlands, as well as Greenhouse Group B.V., on a generative Approach to Story Narration[2]. This model can generate stories and complementary illustrated images with short prompt text inputs from users.
-
-KinyaBERT[1], a BERT variant good at capturing morphological compositionality and expressing word-relative syntactic regularities for Kinyarwanda. This model is designed for rich morphological languages, which is both low-resource and has complex word forms. KinyaBERT is better at understanding the structure of words and sentences in Kinyarwanda, even when there are translation errors. Overall, it’s a step forward in improving language models for less common languages which are rich in morphology.
-
-## 3. Source of Data
-
-The project will utilize an open-sourced dataset of Kinyarwanda text available on public domain. We collect data using a web application [Data collection] for easy collecting and handling our dataset. The dataset structure can be viewed from here. This consists of various genres: fictions (novel, and novella), historical stories, and drama/plays to ensure the model's versatility and robustness. Data preprocessing techniques will be applied to clean and standardize the dataset for training purposes.
-
-## 4. Baseline Model
-
-The unsupervised sub-word tokenization methods commonly used in BERT variant models (e.g., byte-pair encoding – BPE) are sub-optimal at handling morphologically rich languages, especially low resource languages like Kinyarwanda. We will use KinyaBERT architecture[1], a simple two-tier BERT for morphologically rich languages pretrained on Kinyarwanda text. We will also consider two other baseline models Storytelling AI[2] which use small GPT-2 fine-tuned on English dataset of 100 short stories written by the Brothers Grimm as well as A text generation and prediction system pre trained using BERT and GPT-2[3] that uses OpenAI GPT-2 to generate sentences based on the starting words and BERT to generate predictions for the 𝑚𝑎𝑠𝑘ed label position in a given sentence. The model can make predictions based on the words around the label.
-
-## 5. Proposed Solution
-
-The proposed solution involves enhancing the base model's performance on Kinyarwanda text through several strategies:
-
-- Fine-tuning the model on Kinyarwanda data set of short, medium and long stories.
-- Incorporating additional layers or modules to improve the model's ability to generate coherent and contextually relevant text.
-- Evaluating the model's performance using metrics BLEU score, and human evaluation to assess its fluency, coherence, and semantic accuracy.
-
-## 6. Deliverables
+## 3. Deliverables
 
 The project will deliver the following outcomes:
 
