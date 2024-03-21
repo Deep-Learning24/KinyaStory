@@ -17,8 +17,8 @@ from load_and_save_tokenizer import paths
 from nltk.translate.bleu_score import SmoothingFunction
 from statistics import mean
 import gc
-from transformers import AutoTokenizer
-from KinyaTokenizer import encode, decode
+
+from tokenizer_utils import handel_encode, handel_decode
 
 import sys
 
@@ -38,15 +38,7 @@ class KinyaDataset(Dataset):
 
 
 
-tokenizer = AutoTokenizer.from_pretrained('./kinyatokenizer')
-print(f"Vocab size: {tokenizer.vocab_size}")
-print(tokenizer.tokenize("Urukundo ni umutima w'umuntu wese."))
 
-def handel_encode(text):
-    return encode(tokenizer,text)
-def handel_decode(encoded,skip_special_tokens=False):
-  
-    return decode(tokenizer,encoded,skip_special_tokens)
    
 
 encoded = handel_encode("Urukundo ni umutima w'umuntu wese.")
@@ -73,6 +65,8 @@ all_data_dicts = [{'input_ids': torch.tensor(data[0], dtype=torch.long), 'attent
 
 # Create the KinyaDataset
 dataset = KinyaDataset(all_data_dicts)
+# print the size of the dataset
+print(f"Dataset size: {len(dataset)}")
 
 # Split the data into training and validation sets
 train_size = int(0.8 * len(dataset))
@@ -179,7 +173,15 @@ if __name__ == '__main__':
             reference = handel_decode(input_ids[0].cpu().tolist(), skip_special_tokens=True)
             candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
             bleu_score = sentence_bleu([reference.split()], candidate.split(), smoothing_function=SmoothingFunction().method7)
-            rouge_scores = rouge.get_scores(candidate, reference, avg=True)
+            try:
+                if candidate.strip():  # Check if candidate is not empty
+                    rouge_scores = rouge.get_scores(candidate, reference, avg=True)
+                else:
+                    print("Warning: Empty candidate.")
+                    rouge_scores=0
+            except Exception as ex:
+                rouge_scores=0
+                print(f"Exception raised: {ex}")
             average_f1_score_rouge_l = get_rouge_l_score(rouge_scores)
             train_bleu_scores.append(bleu_score)
             train_rouge_scores.append(average_f1_score_rouge_l)
@@ -226,8 +228,16 @@ if __name__ == '__main__':
                 reference = handel_decode(input_ids[0].cpu().tolist(), skip_special_tokens=True)
                 candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
                 bleu_score = sentence_bleu([reference.split()], candidate.split(), smoothing_function=SmoothingFunction().method7)
-                rouge_scores = rouge.get_scores(candidate, reference, avg=True)
-                average_f1_score_rouge_l = get_rouge_l_score(rouge_scores)
+                try:
+                    if candidate.strip():  # Check if candidate is not empty
+                        rouge_scores = rouge.get_scores(candidate, reference, avg=True)
+                    else:
+                        print("Warning: Empty candidate.")
+                        rouge_scores=0
+                except Exception as ex:
+                    rouge_scores=0
+                    print(f"Exception raised: {ex}")
+                    average_f1_score_rouge_l = get_rouge_l_score(rouge_scores)
 
                 val_bleu_scores.append(bleu_score)
                 val_rouge_scores.append(average_f1_score_rouge_l)
