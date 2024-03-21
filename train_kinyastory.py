@@ -85,6 +85,7 @@ model.train()
 
 # Define optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
 
 # Train the model
 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
@@ -212,6 +213,7 @@ if __name__ == '__main__':
                 loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
                 loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
                 val_losses.append(loss.item())
+                scheduler.step(loss.item())
 
                 # Calculate perplexity
                 perplexity = torch.exp(loss).item()
