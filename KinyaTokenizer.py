@@ -88,13 +88,15 @@ class KinyaTokenizer(object):
         for _, row in df.iterrows():
             story_input = row['story_input']
             story_output = row['story_output']
-            input_ids, attention_mask = encode(self.tokenizer,story_input + ' : ' + story_output)
-            tokenized_data.append((input_ids, attention_mask))
+            input_encoding = encode(self.tokenizer, story_input)
+            output_encoding = encode(self.tokenizer, story_output)
+            tokenized_data.append((input_encoding, output_encoding))
         
         # Save the tokenized data
         torch.save(tokenized_data, 'tokenized_data.pt')
         
         return tokenized_data
+
     
     def print_sample_tokenized_data(self, tokenized_data):
         for tokenized_sequence in tokenized_data:
