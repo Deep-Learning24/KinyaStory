@@ -49,3 +49,4 @@ xxhash==3.4.1
 yarl==1.9.4
 nltk
 rouge
+wandb==0.16.4

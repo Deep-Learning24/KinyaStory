@@ -9,14 +9,28 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import time
 
+def encode(tokenizer, text):
+    encoding = tokenizer.encode_plus(
+        text,
+        truncation=True,
+        padding='max_length',
+        max_length=512,
+        return_attention_mask=True,
+    )
+    return encoding['input_ids'], encoding['attention_mask']
 
+def decode(tokenizer, token_ids, skip_special_tokens=False):
+    if isinstance(token_ids[0], list):
+        return [tokenizer.decode(ids, skip_special_tokens=skip_special_tokens) for ids in token_ids]
+    else:
+        return tokenizer.decode(token_ids, skip_special_tokens=skip_special_tokens)
 
 
 class KinyaTokenizer(object):
     def __init__(self, dataset_path):
         self.tokenizer = AutoTokenizer.from_pretrained("jean-paul/KinyaBERT-large", max_length=512)
         self.dataset_path = dataset_path
-        self.extend_vocab()
+        #self.extend_vocab()
 
     def is_word_new(self, args):
         word, vocab_set = args
@@ -55,7 +69,7 @@ class KinyaTokenizer(object):
             self.tokenizer.vocab[word] = last_token_id
 
         # Save the tokenizer
-        self.tokenizer.save_pretrained('./')
+        self.tokenizer.save_pretrained('./kinyatokenizer')
 
 
 
@@ -67,42 +81,32 @@ class KinyaTokenizer(object):
         with open('tokenizer_config.json', 'w') as f:
             json.dump(tokenizer_config, f)
 
-    def encode(self, text):
-        return self.tokenizer.encode(text, truncation=True, padding='max_length', max_length=512)
-
-    def decode(self, token_ids):
-        return self.tokenizer.decode(token_ids)
+    
     def tokenize_dataset(self):
         df = pd.read_csv(self.dataset_path)
         tokenized_data = []
         for _, row in df.iterrows():
             story_input = row['story_input']
             story_output = row['story_output']
-            tokenized_row = self.encode(story_input + ' : ' + story_output)
-            tokenized_data.append(tokenized_row)
+            input_ids, attention_mask = encode(self.tokenizer,story_input + ' : ' + story_output)
+            tokenized_data.append((input_ids, attention_mask))
         
-        tokenized_data = torch.nn.utils.rnn.pad_sequence([torch.tensor(seq) for seq in tokenized_data], batch_first=True)
-        
+        # Save the tokenized data
         torch.save(tokenized_data, 'tokenized_data.pt')
         
         return tokenized_data
     
-    def print_sample_tokenized_data(self):
-        # Load the tokenized data
-        tokenized_data = torch.load('tokenized_data.pt')
-
-        # Print the first 5 tokenized sequences
-        for i in range(2):
-            tokenized_sequence = tokenized_data[i]
-            decoded_sequence =self.decode(tokenized_sequence)
-            print(f'Sample {i+1}: {decoded_sequence}')
+    def print_sample_tokenized_data(self, tokenized_data):
+        for tokenized_sequence in tokenized_data:
+            decoded_sequence = decode(self.tokenizer,tokenized_sequence)
+            print(decoded_sequence)
 
 
 if __name__ == "__main__":
     KinyaTokenizer = KinyaTokenizer('kinyastory_data/kinyastory.csv')
     tokenized_data = KinyaTokenizer.tokenize_dataset()
     print("Tokenized data saved as tokenized_data.pt")
-    KinyaTokenizer.print_sample_tokenized_data()
+    KinyaTokenizer.print_sample_tokenized_data(tokenized_data[0])
     print("Sample tokenized data printed")
     
 
