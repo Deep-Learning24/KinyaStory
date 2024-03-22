@@ -12,16 +12,16 @@ class DownloadKinyastory:
         self.save_path = os.path.join(os.getcwd(), self.save_dir)
         self.file_path = os.path.join(self.save_path, "stories.json")
 
-        if os.path.exists(self.file_path):
-            with open(self.file_path, 'r') as f:
-                self.data = json.load(f)
-            print(f"Loaded {len(self.data)} stories from {self.file_path}")
+        # if os.path.exists(self.file_path):
+        #     with open(self.file_path, 'r') as f:
+        #         self.data = json.load(f)
+        #     print(f"Loaded {len(self.data)} stories from {self.file_path}")
+        # else:
+        response = requests.get(self.url)
+        if response.status_code == 200:
+            self.data = response.json()
         else:
-            response = requests.get(self.url)
-            if response.status_code == 200:
-                self.data = response.json()
-            else:
-                raise Exception(f"Failed to fetch data from {self.url}. Status code: {response.status_code}")
+            raise Exception(f"Failed to fetch data from {self.url}. Status code: {response.status_code}")
         
     def __getitem__(self, idx):
         return self.data[idx]

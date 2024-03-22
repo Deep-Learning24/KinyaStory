@@ -36,11 +36,6 @@ class KinyaDataset(Dataset):
         return input_ids, attention_mask
 
 
-
-
-
-   
-
 encoded = handel_encode("Urukundo ni umutima w'umuntu wese.")
 print(encoded)
 # Check decoder
@@ -85,7 +80,7 @@ model.train()
 
 # Define optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
 
 # Train the model
 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)

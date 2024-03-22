@@ -64,11 +64,17 @@ class Attention(nn.Module):
         if self.scale:
             w = w / math.sqrt(v.size(-1))
         if attention_mask is not None:
-            # Reshape attention_mask
-            attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+            # Ensure attention_mask has the same number of dimensions as w
+            if attention_mask.dim() != w.dim():
+                attention_mask = attention_mask.unsqueeze(-3)
+            # Ensure attention_mask has the same shape as w
+            attention_mask = attention_mask.repeat(w.size(0), w.size(1), 1, 1)
             w = w.masked_fill(attention_mask == 0, -1e10)
         w = nn.Softmax(dim=-1)(w)
         return torch.matmul(w, v)
+
+
+
 
     def merge_heads(self, x):
         x = x.permute(0, 2, 1, 3).contiguous()

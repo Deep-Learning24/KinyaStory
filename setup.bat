@@ -6,7 +6,7 @@ pip install -r requirements.txt
 
 REM Step 2: Run DownloadKinyastory script
 echo Running DownloadKinyastory...
-python DownloadKinyastory.py
+python download_kinyastory.py
 
 REM Step 3: Run KinyaTokenizer script
 echo Running KinyaTokenizer...
