@@ -170,7 +170,7 @@ if __name__ == '__main__':
             candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
             reference_tokens = reference.split() if isinstance(reference, str) else reference
             candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
-            bleu_score = sentence_bleu([reference.split()], candidate.split(), smoothing_function=SmoothingFunction().method7)
+            bleu_score = sentence_bleu([reference], candidate, smoothing_function=SmoothingFunction().method7)
             try:
                 if candidate.strip():  # Check if candidate is not empty
                     rouge_scores = rouge.get_scores(candidate, reference, avg=True)
@@ -228,7 +228,7 @@ if __name__ == '__main__':
                 candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
                 reference_tokens = reference.split() if isinstance(reference, str) else reference
                 candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
-                bleu_score = sentence_bleu([reference.split()], candidate.split(), smoothing_function=SmoothingFunction().method7)
+                bleu_score = sentence_bleu([reference], candidate, smoothing_function=SmoothingFunction().method7)
                 try:
                     if candidate.strip():  # Check if candidate is not empty
                         rouge_scores = rouge.get_scores(candidate, reference, avg=True)
