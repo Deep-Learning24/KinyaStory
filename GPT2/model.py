@@ -46,6 +46,7 @@ class Conv1D(nn.Module):
         return x
 
 
+
 class Attention(nn.Module):
     def __init__(self, nx, n_ctx, config, scale=False):
         super(Attention, self).__init__()
@@ -59,22 +60,15 @@ class Attention(nn.Module):
         self.c_attn = Conv1D(n_state * 3, nx)
         self.c_proj = Conv1D(n_state, nx)
 
-    def _attn(self, q, k, v, attention_mask=None):
+    def _attn(self, q, k, v):
         w = torch.matmul(q, k)
         if self.scale:
             w = w / math.sqrt(v.size(-1))
-        if attention_mask is not None:
-            # Ensure attention_mask has the same number of dimensions as w
-            if attention_mask.dim() != w.dim():
-                attention_mask = attention_mask.unsqueeze(-3)
-            # Ensure attention_mask has the same shape as w
-            attention_mask = attention_mask.repeat(w.size(0), w.size(1), 1, 1)
-            w = w.masked_fill(attention_mask == 0, -1e10)
+        nd, ns = w.size(-2), w.size(-1)
+        b = self.bias[:, :, ns-nd:ns, :ns]
+        w = w * b - 1e10 * (1 - b)
         w = nn.Softmax(dim=-1)(w)
         return torch.matmul(w, v)
-
-
-
 
     def merge_heads(self, x):
         x = x.permute(0, 2, 1, 3).contiguous()
@@ -89,7 +83,7 @@ class Attention(nn.Module):
         else:
             return x.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
-    def forward(self, x, layer_past=None, attention_mask=None):
+    def forward(self, x, layer_past=None):
         x = self.c_attn(x)
         query, key, value = x.split(self.split_size, dim=2)
         query = self.split_heads(query)
@@ -100,7 +94,7 @@ class Attention(nn.Module):
             key = torch.cat((past_key, key), dim=-1)
             value = torch.cat((past_value, value), dim=-2)
         present = torch.stack((key.transpose(-2, -1), value))  # transpose to have same shapes for stacking
-        a = self._attn(query, key, value, attention_mask)
+        a = self._attn(query, key, value)
         a = self.merge_heads(a)
         a = self.c_proj(a)
         return a, present
@@ -129,8 +123,8 @@ class Block(nn.Module):
         self.ln_2 = LayerNorm(nx, eps=config.layer_norm_epsilon)
         self.mlp = MLP(4 * nx, config)
 
-    def forward(self, x, layer_past=None, attention_mask=None):
-        a, present = self.attn(self.ln_1(x), layer_past=layer_past, attention_mask=attention_mask)
+    def forward(self, x, layer_past=None):
+        a, present = self.attn(self.ln_1(x), layer_past=layer_past)
         x = x + a
         m = self.mlp(self.ln_2(x))
         x = x + m
@@ -155,7 +149,7 @@ class GPT2Model(nn.Module):
         self.decoder = nn.Linear(embed_shape[1], embed_shape[0], bias=False)
         self.decoder.weight = model_embeddings_weights  # Tied weights
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, past=None, attention_mask=None):
+    def forward(self, input_ids, position_ids=None, token_type_ids=None, past=None):
         if past is None:
             past_length = 0
             past = [None] * len(self.h)
@@ -180,7 +174,7 @@ class GPT2Model(nn.Module):
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         presents = []
         for block, layer_past in zip(self.h, past):
-            hidden_states, present = block(hidden_states, layer_past, attention_mask=attention_mask)
+            hidden_states, present = block(hidden_states, layer_past)
             presents.append(present)
         hidden_states = self.ln_f(hidden_states)
         output_shape = input_shape + (hidden_states.size(-1),)
@@ -216,8 +210,8 @@ class GPT2LMHeadModel(nn.Module):
         """
         self.lm_head.set_embeddings_weights(self.transformer.wte.weight)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, lm_labels=None, past=None, attention_mask=None):
-        hidden_states, presents = self.transformer(input_ids, position_ids, token_type_ids, past, attention_mask)
+    def forward(self, input_ids, position_ids=None, token_type_ids=None, lm_labels=None, past=None):
+        hidden_states, presents = self.transformer(input_ids, position_ids, token_type_ids, past)
         lm_logits = self.lm_head(hidden_states)
         if lm_labels is not None:
             # Shift so that tokens < n predict n

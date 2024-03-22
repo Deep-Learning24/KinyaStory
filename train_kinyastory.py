@@ -36,10 +36,10 @@ class KinyaDataset(Dataset):
         return input_ids, attention_mask
 
 
-encoded = handel_encode("Urukundo ni umutima w'umuntu wese.")
-print(encoded)
-# Check decoder
-print("Decoded:", handel_decode(encoded, skip_special_tokens=True))
+# encoded = handel_encode("Urukundo ni umutima w'umuntu wese.")
+# print(encoded)
+# # Check decoder
+# print("Decoded:", handel_decode(encoded, skip_special_tokens=True))
 
 
 # load tokenized kinystory data
@@ -143,7 +143,7 @@ if __name__ == '__main__':
             attention_mask = attention_mask.to(device)
 
             # Get logits from the model
-            logits = model(input_ids=input_ids, attention_mask=attention_mask)[0]
+            logits = model(input_ids=input_ids)[0]
 
             # Compute the loss
             shift_logits = logits[..., :-1, :].contiguous()
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                 attention_mask = attention_mask.to(device)
 
                 # Get logits from the model
-                logits = model(input_ids=input_ids, attention_mask=attention_mask)[0]
+                logits = model(input_ids=input_ids)[0]
 
                 # Compute the loss
                 shift_logits = logits[..., :-1, :].contiguous()
