@@ -168,6 +168,8 @@ if __name__ == '__main__':
             # Calculate BLEU and ROUGE scores
             reference = handel_decode(input_ids[0].cpu().tolist(), skip_special_tokens=True)
             candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
+            reference_tokens = reference.split() if isinstance(reference, str) else reference
+            candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
             bleu_score = sentence_bleu([reference.split()], candidate.split(), smoothing_function=SmoothingFunction().method7)
             try:
                 if candidate.strip():  # Check if candidate is not empty
@@ -224,6 +226,8 @@ if __name__ == '__main__':
                 # Calculate BLEU and ROUGE scores
                 reference = handel_decode(input_ids[0].cpu().tolist(), skip_special_tokens=True)
                 candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
+                reference_tokens = reference.split() if isinstance(reference, str) else reference
+                candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
                 bleu_score = sentence_bleu([reference.split()], candidate.split(), smoothing_function=SmoothingFunction().method7)
                 try:
                     if candidate.strip():  # Check if candidate is not empty
