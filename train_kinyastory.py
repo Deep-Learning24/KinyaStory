@@ -85,16 +85,16 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0
 # Train the model
 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
-epochs = 10
+epochs = 100
 
 rouge = Rouge()
 import wandb
 wandb.login(key="3644f3d76a394594794c1b136a20f75303e871ba")#API Key is in your wandb account, under settings (wandb.ai/settings)
 run = wandb.init(
     name = "kinya-story", ## Wandb creates random run names if you skip this field
-    #reinit = True, ### Allows reinitalizing runs when you re-run this cell
+    reinit = True, ### Allows reinitalizing runs when you re-run this cell
     id ="kinya-story", ### Insert specific run id here if you want to resume a previous run
-    resume = "must", ### You need this to resume previous runs, but comment out reinit = True when using this
+    #resume = "must", ### You need this to resume previous runs, but comment out reinit = True when using this
     project = "project-ablations", ### Project should be created in your wandb account
     config = config ### Wandb Config for your run
 )
