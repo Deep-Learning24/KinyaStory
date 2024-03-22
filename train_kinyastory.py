@@ -168,18 +168,29 @@ if __name__ == '__main__':
             # Calculate BLEU and ROUGE scores
             reference = handel_decode(input_ids[0].cpu().tolist(), skip_special_tokens=True)
             candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
+
+            # Prepare inputs for BLEU score calculation
             reference_tokens = reference.split() if isinstance(reference, str) else reference
             candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
-            bleu_score = sentence_bleu([reference], candidate, smoothing_function=SmoothingFunction().method7)
+
+            # Calculate BLEU score
+            bleu_score = sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=SmoothingFunction().method7)
+
+            # Prepare inputs for ROUGE score calculation
+            # Join tokens into a string if they're not already a string
+            reference_str = " ".join(reference) if isinstance(reference, list) else reference
+            candidate_str = " ".join(candidate) if isinstance(candidate, list) else candidate
+
             try:
-                if candidate.strip():  # Check if candidate is not empty
-                    rouge_scores = rouge.get_scores(candidate, reference, avg=True)
+                if candidate_str.strip():  # Ensure candidate string is not empty
+                    rouge_scores = rouge.get_scores(candidate_str, reference_str, avg=True)
                 else:
-                    print("Warning: Empty candidate.")
-                    rouge_scores=0
+                    print("Warning: Empty candidate string.")
+                    rouge_scores = {'rouge-l': {'f': 0}}  # Default score if candidate is empty
             except Exception as ex:
-                rouge_scores=0
-                print(f"Exception raised: {ex}")
+                print(f"Exception in ROUGE scoring: {ex}")
+                rouge_scores = {'rouge-l': {'f': 0}}  # Default score in case of exception
+
             average_f1_score_rouge_l = get_rouge_l_score(rouge_scores)
             train_bleu_scores.append(bleu_score)
             train_rouge_scores.append(average_f1_score_rouge_l)
@@ -227,18 +238,29 @@ if __name__ == '__main__':
                 reference = handel_decode(input_ids[0].cpu().tolist(), skip_special_tokens=True)
                 candidate = handel_decode(predictions[0].cpu().tolist(), skip_special_tokens=True)
                 reference_tokens = reference.split() if isinstance(reference, str) else reference
+                # Prepare inputs for BLEU score calculation
+                reference_tokens = reference.split() if isinstance(reference, str) else reference
                 candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
-                bleu_score = sentence_bleu([reference], candidate, smoothing_function=SmoothingFunction().method7)
+
+                # Calculate BLEU score
+                bleu_score = sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=SmoothingFunction().method7)
+
+                # Prepare inputs for ROUGE score calculation
+                # Join tokens into a string if they're not already a string
+                reference_str = " ".join(reference) if isinstance(reference, list) else reference
+                candidate_str = " ".join(candidate) if isinstance(candidate, list) else candidate
+
                 try:
-                    if candidate.strip():  # Check if candidate is not empty
-                        rouge_scores = rouge.get_scores(candidate, reference, avg=True)
+                    if candidate_str.strip():  # Ensure candidate string is not empty
+                        rouge_scores = rouge.get_scores(candidate_str, reference_str, avg=True)
                     else:
-                        print("Warning: Empty candidate.")
-                        rouge_scores=0
+                        print("Warning: Empty candidate string.")
+                        rouge_scores = {'rouge-l': {'f': 0}}  # Default score if candidate is empty
                 except Exception as ex:
-                    rouge_scores=0
-                    print(f"Exception raised: {ex}")
-                    average_f1_score_rouge_l = get_rouge_l_score(rouge_scores)
+                    print(f"Exception in ROUGE scoring: {ex}")
+                    rouge_scores = {'rouge-l': {'f': 0}}  # Default score in case of exception
+
+                average_f1_score_rouge_l = get_rouge_l_score(rouge_scores)
 
                 val_bleu_scores.append(bleu_score)
                 val_rouge_scores.append(average_f1_score_rouge_l)
