@@ -15,3 +15,18 @@
 /tokenizer_config.json
 tokenized_data.pt
 vocab.txt
+*.zip
+Kinyarwanda_Data-20240329T141502Z-001.zip
+*.pth
+Kinyarwanda_Data
+kinyarwanda news
+pretrain_tokenized_data
+*.pt
+*.pth
+models/*.pt
+
+
+
+
+
+
