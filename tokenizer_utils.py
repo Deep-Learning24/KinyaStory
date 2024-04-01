@@ -1,4 +1,4 @@
-from KinyaTokenizer import encode, decode
+from KinyaTokenizerFineTune import encode, decode
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained('./kinyatokenizer')
