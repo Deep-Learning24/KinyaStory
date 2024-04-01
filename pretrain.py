@@ -81,9 +81,9 @@ class PretrainDataset(Dataset):
                     story_input = row['title']
                     story_output = row['content']
                     try:
-                        input_encoding = self.tokenizer(story_input)
-                        output_encoding = self.tokenizer(story_output)
-                        combined_encoding = input_encoding + output_encoding
+                        # Combine the input and output sequences separated by a special token <pad>
+                        combined_text = story_input + '<pad>' + story_output
+                        combined_encoding = self.tokenizer(combined_text)
                         out.write(str(combined_encoding) + '\n')
                     except Exception as e:
                         print(f"Error tokenizing row: {e}")
@@ -106,26 +106,33 @@ class PretrainDataset(Dataset):
             with open(self.train_tokenized_data_file, 'r') as f1, open(self.tokenized_text_data_file, 'r') as f2:
                 for i, line in enumerate(itertools.chain(f1, f2)):
                     if i == idx:
-                        return self.process_line(line, idx)
+                        processed_line = self.process_line(line, idx)
+                        if processed_line is None:
+                            return self.__getitem__(idx + 1)  # Skip to the next line
+                        return processed_line
         else:
             with open(self.test_tokenized_data_file, 'r') as f:
                 for i, line in enumerate(f):
                     if i == idx:
-                        return self.process_line(line, idx)
+                        processed_line = self.process_line(line, idx)
+                        if processed_line is None:
+                            return self.__getitem__(idx + 1)  # Skip to the next line
+                        return processed_line
 
     def process_line(self, line, idx):
         try:
             input_data = ast.literal_eval(line)
-            if len(input_data) != 2:
-                raise ValueError("Incorrect number of sequences")
+            if len(input_data) < 2:
+                print(f"Skipping line {idx}: Incorrect number of sequences")
+                return None
+            #Input ids are at the even index, while attention mask is at the odd index
             input_ids = input_data[0]
             attention_mask = input_data[1]
             
             assert len(input_ids) == len(attention_mask), f"Mismatched lengths for line {idx}"
-        except (ValueError, SyntaxError) as e:
-            raise ValueError(f"Error parsing line {idx}: {e}")
-        except AssertionError as e:
-            raise AssertionError(f"Assertion error at line {idx}: {e}")
+        except (ValueError, SyntaxError, AssertionError) as e:
+            print(f"Skipping line {idx}: {e}")
+            return None
 
         input_ids_tensor = torch.tensor(input_ids, dtype=torch.long)
         attention_mask_tensor = torch.tensor(attention_mask, dtype=torch.long)
@@ -137,7 +144,7 @@ class PretrainDataset(Dataset):
             'labels': labels_tensor
         }
 
-
+    
 
 def collate_fn(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
     """
