@@ -217,9 +217,9 @@ class Pretrain:
         self.smoothie = SmoothingFunction().method4
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
         self.train_dataset = PretrainDataset(self.text_files_path, self.train_csv_path, self.test_csv_path, self.tokenizer)
-        self.train_loader = DataLoader(self.train_dataset, batch_size=4, shuffle=True,collate_fn=collate_fn)
+        self.train_loader = DataLoader(self.train_dataset, batch_size=16, shuffle=True,collate_fn=collate_fn)
         self.test_dataset = PretrainDataset(self.text_files_path, self.train_csv_path, self.test_csv_path, self.tokenizer, is_train=False)
-        self.test_loader = DataLoader(self.test_dataset, batch_size=4, shuffle=False,collate_fn=collate_fn)
+        self.test_loader = DataLoader(self.test_dataset, batch_size=16, shuffle=False,collate_fn=collate_fn)
         self.rouge = Rouge()
         self.load_model()
 
@@ -265,7 +265,7 @@ class Pretrain:
                 loss = self.loss_fn(logits.view(-1, logits.size(-1)), labels.view(-1))
                 self.scheduler.step(loss.item())
                 predicted_ids = torch.argmax(logits, dim=-1)
-                bleu_score = self.calculate_bleu_score(labels, predicted_ids,smoothing_function=self.smoothie)
+                bleu_score = self.calculate_bleu_score(labels, predicted_ids)
                 rouge_score = self.calculate_rouge_score(labels, predicted_ids)
                 perplexity = torch.exp(loss)
                 perplexities.append(perplexity.item())
