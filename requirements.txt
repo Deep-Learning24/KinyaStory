@@ -51,3 +51,4 @@ nltk
 rouge
 wandb==0.16.4
 transformers
+h5py
