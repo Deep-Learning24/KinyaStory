@@ -18,6 +18,7 @@ from tokenizer_utils import handel_encode, handel_decode
 import wandb
 import sys
 import h5py
+import re
 from torch.cuda.amp import autocast
 
 sys.path.append('../')
@@ -28,6 +29,7 @@ class DataPreparator:
 
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.common_english_words = set(["the", "and", "is", "in", "at", "of", "on", "for", "with", "without"])
 
     def prepare_datasets(self, text_files_path, train_csv_path, test_csv_path, output_dir):
         """
@@ -56,10 +58,35 @@ class DataPreparator:
         self._tokenize_and_save_df(val_df, val_output_path, dataset_type="validation")
         self._tokenize_and_save_df(test_df, test_output_path, dataset_type="test")
 
+    def is_english_word(self,word):
+        # Basic check to see if a word is an English word.
+        # This could be a simple check against a set of common English words.
+        # For a more comprehensive solution, consider using a dictionary or an NLP library.
+        return word.lower() in self.common_english_words
+    
+    def preprocess_text(self, text):
+        # Ensure text is a string
+        text = str(text)
+        
+        # Remove URLs
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+        # Remove HTML tags
+        text = re.sub(r'<.*?>', '', text)
+        # Remove special characters like #, @
+        text = re.sub(r'[@#]', '', text)
+        # Remove English words by splitting the text and filtering
+        words = text.split()
+        filtered_words = [word for word in words if not self.is_english_word(word)]
+        text = ' '.join(filtered_words)
+        # Replace multiple spaces with a single space
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
     def _tokenize_and_save(self, file_paths, output_path, dataset_type):
         with h5py.File(output_path, 'w') as hf:
-            hf.create_dataset("input_ids", (0, self.max_length), maxshape=(None, self.max_length), dtype='i8')
-            hf.create_dataset("attention_mask", (0, self.max_length), maxshape=(None, self.max_length), dtype='i8')
+            hf.create_dataset("input_ids", (0, self.max_length), maxshape=(None, self.max_length), dtype='i8', compression="gzip")
+            hf.create_dataset("attention_mask", (0, self.max_length), maxshape=(None, self.max_length), dtype='i8', compression="gzip")
+
             total_entries = 0
 
             for file_path in file_paths:
@@ -70,6 +97,7 @@ class DataPreparator:
                 else:  # Single CSV file
                     df = pd.read_csv(file_path)
                     self._tokenize_and_save_df(df, output_path, dataset_type)
+                
 
             print(f"Total entries processed and saved for {dataset_type}: {total_entries}")
 
@@ -77,15 +105,28 @@ class DataPreparator:
         with h5py.File(output_path, 'a') as hf:  # Ensure appending mode
             for _, row in tqdm(df.iterrows(), desc=f"Tokenizing {dataset_type}"):
                 text = row['content']  # Assuming 'content' column contains text to tokenize
+                text = self.preprocess_text(text)
                 self._tokenize_and_append(text, hf)
 
     def _tokenize_and_append(self, text, hf):
-        input_ids, attention_mask = handel_encode(text)
-        current_size = hf["input_ids"].shape[0]
-        hf["input_ids"].resize((current_size + 1, self.max_length))
-        hf["attention_mask"].resize((current_size + 1, self.max_length))
-        hf["input_ids"][current_size, :] = input_ids[:self.max_length]
-        hf["attention_mask"][current_size, :] = attention_mask[:self.max_length]
+        try:
+            text = self.preprocess_text(text)
+            input_ids, attention_mask = handel_encode(text)
+            # Check if datasets exist; if not, create them
+            if "input_ids" not in hf:
+                hf.create_dataset("input_ids", (0, self.max_length), maxshape=(None, self.max_length), dtype='i8', compression="gzip")
+            if "attention_mask" not in hf:
+                hf.create_dataset("attention_mask", (0, self.max_length), maxshape=(None, self.max_length), dtype='i8', compression="gzip")
+                
+            current_size = hf["input_ids"].shape[0]
+            hf["input_ids"].resize((current_size + 1, self.max_length))
+            hf["attention_mask"].resize((current_size + 1, self.max_length))
+            hf["input_ids"][current_size, :] = input_ids[:self.max_length]
+            hf["attention_mask"][current_size, :] = attention_mask[:self.max_length]
+        except Exception as e:
+            print(f"Error tokenizing row: {e}")
+
+            
 
     def _process_file(self, file_path, hf):
         if file_path.endswith('.txt'):
@@ -182,7 +223,7 @@ class Pretrain:
         
         wandb.init(
             project="project-ablations", 
-            config=self.config.to_dict(),
+            config=self.config,
             name = "kinya-story-pretrain", ## Wandb creates random run names if you skip this field
             #reinit = True, ### Allows reinitalizing runs when you re-run this cell
             id ="kinya-story-pretrain", ### Insert specific run id here if you want to resume a previous run
@@ -200,7 +241,7 @@ class Pretrain:
         self.load_model()
 
     def train(self, train_loader, val_loader, epochs=30):
-
+        self.load_model()
         self.model.train()
 
         for epoch in range(epochs):
@@ -216,14 +257,17 @@ class Pretrain:
                 
                 self.optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+
                 self.optimizer.step()
                 
                 progress_bar.set_postfix({'Training Loss': f'{loss.item():.4f}'})
                 
             avg_train_loss = total_loss / len(train_loader)
             eval_loss, avg_bleu, avg_rouge, avg_perplexity = self.evaluate(val_loader)
-            
-            wandb.log({"avg_train_loss": avg_train_loss, "eval_loss": eval_loss, "avg_bleu": avg_bleu, "avg_rouge": avg_rouge, "avg_perplexity": avg_perplexity,"epoch": epoch+1})
+            results={"avg_train_loss": avg_train_loss, "eval_loss": eval_loss, "avg_bleu": avg_bleu, "avg_rouge": avg_rouge, "avg_perplexity": avg_perplexity,"epoch": epoch+1}
+            print(results)
+            wandb.log(results)
 
     def evaluate(self, loader):
         self.model.eval()
@@ -237,11 +281,12 @@ class Pretrain:
                 attention_mask = batch['attention_mask'].to(self.device)
                 labels = batch['labels'].to(self.device)
                 # get the labels which are not equal to -100
-                labels = labels[labels != -100]
+               
                 with autocast():
                     logits, _ = self.model(input_ids, attention_mask=attention_mask)
                     loss = self.loss_fn(logits.view(-1, logits.size(-1)), labels.view(-1))
-                  
+
+                #labels = labels[labels != -100]
                 predicted_ids = torch.argmax(logits, dim=-1)
                 bleu_score = self.calculate_bleu_score(labels, predicted_ids)
                 rouge_score = self.calculate_rouge_score(labels, predicted_ids)
@@ -274,23 +319,47 @@ class Pretrain:
         return mean(bleu_scores)
     
 
+    # def calculate_rouge_score(self, labels, predicted_ids):
+    #     rouge_scores = []
+    #     for i in range(len(labels)):
+    #         # Exclude -100 values from labels before decoding
+    #         label = labels[i]
+    #         proper_label = []
+    #             # Decode label tensor
+    #         for token in label:
+    #             if token>0:
+    #                 proper_label.append(token)
+    #         decoded_label = handel_decode(proper_label)
+    #         predicted = handel_decode(predicted_ids[i])
+    #         rouge_score = self.rouge.get_scores(predicted, decoded_label)
+    #         rouge_scores.append(get_rouge_l_score(rouge_score))
+    #     return mean(rouge_scores)
+    
     def calculate_rouge_score(self, labels, predicted_ids):
         rouge_scores = []
-        for i in range(len(labels)):
-            # Exclude -100 values from labels before decoding
-            label = labels[i]
-            proper_label = []
-                # Decode label tensor
-            for token in label:
-                if token>0:
-                    proper_label.append(token)
+    
+        for label, predicted_id in zip(labels, predicted_ids):
+            # Filter out -100 values and ensure token IDs are positive
+            proper_label = [token for token in label if token > 0]
+            
+            # Decode both label and prediction
             decoded_label = handel_decode(proper_label)
-            predicted = handel_decode(predicted_ids[i])
-            rouge_score = self.rouge.get_scores(predicted, decoded_label)
-            rouge_scores.append(get_rouge_l_score(rouge_score))
-        return mean(rouge_scores)
+            predicted = handel_decode(predicted_id)
+            
+            # Check for empty strings to avoid 'Hypothesis is empty' error
+            if not decoded_label.strip() or not predicted.strip():
+                print("Skipping empty prediction or reference.")
+                continue
+            
+            try:
+                rouge_score = self.rouge.get_scores(predicted, decoded_label, avg=True)
+                rouge_scores.append(rouge_score['rouge-l']['f'])
+            except Exception as e:
+                print(f"Error calculating ROUGE score: {e}")
     
-    
+        # Compute the average ROUGE-L F1 score if rouge_scores is not empty, else return 0
+        return mean(rouge_scores) if rouge_scores else 0
+
     def save_model(self, filename="best_gpt2_model.pt"):
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
@@ -301,7 +370,7 @@ class Pretrain:
         model_file = os.path.join(self.model_path, filename)
         if os.path.exists(model_file):
             self.model.load_state_dict(torch.load(model_file))
-            self.model.eval()
+            
             print(f'Model loaded from {model_file}')
         else:
             print("Model file not found.")

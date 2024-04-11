@@ -216,13 +216,13 @@ class GPT2LMHeadModel(nn.Module):
         """
         self.lm_head.set_embeddings_weights(self.transformer.wte.weight)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, lm_labels=None, past=None,attention_mask=None):
+    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, past=None,attention_mask=None):
         hidden_states, presents = self.transformer(input_ids, position_ids, token_type_ids, past,attention_mask)
         lm_logits = self.lm_head(hidden_states)
-        if lm_labels is not None:
+        if labels is not None:
             # Shift so that tokens < n predict n
             shift_logits = lm_logits[..., :-1, :].contiguous()
-            shift_labels = lm_labels[..., 1:].contiguous()
+            shift_labels = labels[..., 1:].contiguous()
             # Flatten the tokens
             loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
