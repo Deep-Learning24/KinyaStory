@@ -19,8 +19,10 @@ from statistics import mean
 import gc
 
 from tokenizer_utils import handel_encode, handel_decode
+from torch.nn.utils.rnn import pad_sequence
 
 import sys
+
 
 class KinyaDataset(Dataset):
     def __init__(self, data):
@@ -30,10 +32,52 @@ class KinyaDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
+
         item = self.data[idx]
         input_ids = item['input_ids']
         attention_mask = item['attention_mask']
-        return input_ids, attention_mask
+
+        input_encoding = input_ids[:-1], attention_mask[:-1]
+        target_encoding = input_ids[1:], attention_mask[1:]
+
+        # Convert the encoding to tensors
+        input_encoding = (input_encoding[0].clone().detach(), input_encoding[1].clone().detach())
+        target_encoding = (target_encoding[0].clone().detach(), target_encoding[1].clone().detach())
+
+        return {
+            "input_ids": input_encoding[0],
+            "attention_mask": input_encoding[1],
+            "labels": target_encoding[0],
+        }
+
+
+def collate_fn(batch):
+    """
+    Collates batch data, dynamically padding to the longest sequence in the batch.
+    It also prepares 'labels' tensor, which matches 'input_ids' but with padding tokens set to -100.
+
+    Args:
+        batch: A list of dictionaries with 'input_ids', 'attention_mask', and 'labels'.
+
+    Returns:
+        A dictionary with batched 'input_ids', 'attention_mask', and 'labels', all padded to the same length.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    input_ids = [item['input_ids'] for item in batch]
+    attention_masks = [item['attention_mask'] for item in batch]
+    labels = [item['labels'] for item in batch]
+
+    # Pad sequences
+    input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=0)
+    attention_masks_padded = pad_sequence(attention_masks, batch_first=True, padding_value=0)
+    labels_padded = pad_sequence(labels, batch_first=True, padding_value=-100)
+
+    return {
+        'input_ids': input_ids_padded.to(device),
+        'attention_mask': attention_masks_padded.to(device),
+        'labels': labels_padded.to(device)
+    }
 
 
 # encoded = handel_encode("Urukundo ni umutima w'umuntu wese.")
@@ -56,7 +100,9 @@ if not os.path.exists(file_path):
 all_data = torch.load(file_path)
 
 # Convert the data into a list of dictionaries
-all_data_dicts = [{'input_ids': torch.tensor(data[0], dtype=torch.long), 'attention_mask': torch.tensor(data[1], dtype=torch.long)} for data in all_data]
+all_data_dicts = [
+    {'input_ids': torch.tensor(data[0], dtype=torch.long), 'attention_mask': torch.tensor(data[1], dtype=torch.long)}
+    for data in all_data]
 
 # Create the KinyaDataset
 dataset = KinyaDataset(all_data_dicts)
@@ -83,20 +129,22 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
 
 # Train the model
-train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, collate_fn=collate_fn)
 epochs = 100
 
 rouge = Rouge()
 import wandb
-wandb.login(key="3644f3d76a394594794c1b136a20f75303e871ba")#API Key is in your wandb account, under settings (wandb.ai/settings)
+
+wandb.login(
+    key="3644f3d76a394594794c1b136a20f75303e871ba")  # API Key is in your wandb account, under settings (wandb.ai/settings)
 run = wandb.init(
-    name = "kinya-story-new", ## Wandb creates random run names if you skip this field
-    reinit = True, ### Allows reinitalizing runs when you re-run this cell
-    id ="kinya-story-new", ### Insert specific run id here if you want to resume a previous run
-    #resume = "must", ### You need this to resume previous runs, but comment out reinit = True when using this
-    project = "project-ablations", ### Project should be created in your wandb account
-    config = config ### Wandb Config for your run
+    name="kinya-story-new",  ## Wandb creates random run names if you skip this field
+    reinit=True,  ### Allows reinitalizing runs when you re-run this cell
+    id="kinya-story-new",  ### Insert specific run id here if you want to resume a previous run
+    # resume = "must", ### You need this to resume previous runs, but comment out reinit = True when using this
+    project="project-ablations",  ### Project should be created in your wandb account
+    config=config  ### Wandb Config for your run
 )
 # Create a SmoothingFunction object
 smoothie = SmoothingFunction().method4
@@ -110,20 +158,22 @@ def get_rouge_l_score(score):
     else:
         return 0.0  # or any other default value you prefer
 
+
 if __name__ == '__main__':
-    gc.collect() # These commands help you when you face CUDA OOM error
+    gc.collect()  # These commands help you when you face CUDA OOM error
     torch.cuda.empty_cache()
     # Check if there is a checkpoint
     if os.path.exists('gpt2_story_generator.pth'):
         try:
-            state_dict = torch.load('gpt2_story_generator.pth', map_location='cpu' if not torch.cuda.is_available() else None)
+            state_dict = torch.load('gpt2_story_generator.pth',
+                                    map_location='cpu' if not torch.cuda.is_available() else None)
             model.load_state_dict(state_dict)
         except:
             print('Error loading the model')
 
     start_epoch = 0
     for epoch in range(start_epoch, epochs):
-        gc.collect() # These commands help you when you face CUDA OOM error
+        gc.collect()  # These commands help you when you face CUDA OOM error
         torch.cuda.empty_cache()
         start_epoch = epoch
         # Training loop
@@ -133,22 +183,25 @@ if __name__ == '__main__':
         train_bleu_scores = []
         train_rouge_scores = []
         curr_lr = float(optimizer.param_groups[0]['lr'])
-        train_progress_bar = tqdm(train_loader, desc=f'Training Epoch {epoch+1}', leave=False)
+        train_progress_bar = tqdm(train_loader, desc=f'Training Epoch {epoch + 1}', leave=False)
         for i, batch in enumerate(train_progress_bar):
             # Check how many elements are in the batch
-            #print(len(batch))
-            
-            input_ids, attention_mask = batch
+            print(len(batch))
+            input_ids = batch['input_ids']
+            attention_mask = batch['attention_mask']
+            labels = batch['labels']
+            #print("input_ids tensor shape", input_ids.shape)  # print the shape directly
             input_ids = input_ids.to(device)
             attention_mask = attention_mask.to(device)
+            labels = labels.to(device)
 
             # Get logits from the model
             logits = model(input_ids=input_ids)[0]
 
             # Compute the loss
             shift_logits = logits[..., :-1, :].contiguous()
-            shift_labels = input_ids[..., 1:].contiguous()
-            loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
+            shift_labels = labels[..., :-1].contiguous() # Shift the labels to the right
+            loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             optimizer.zero_grad()
             loss.backward()
@@ -174,7 +227,8 @@ if __name__ == '__main__':
             candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
 
             # Calculate BLEU score
-            bleu_score = sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=SmoothingFunction().method7)
+            bleu_score = sentence_bleu([reference_tokens], candidate_tokens,
+                                       smoothing_function=SmoothingFunction().method7)
 
             # Prepare inputs for ROUGE score calculation
             # Join tokens into a string if they're not already a string
@@ -195,7 +249,9 @@ if __name__ == '__main__':
             train_bleu_scores.append(bleu_score)
             train_rouge_scores.append(average_f1_score_rouge_l)
 
-            train_progress_bar.set_postfix({'loss': loss.item(), 'perplexity': perplexity, 'accuracy': accuracy, 'bleu_score': bleu_score, 'rouge_score': average_f1_score_rouge_l})
+            train_progress_bar.set_postfix(
+                {'loss': loss.item(), 'perplexity': perplexity, 'accuracy': accuracy, 'bleu_score': bleu_score,
+                 'rouge_score': average_f1_score_rouge_l})
         train_progress_bar.close()
 
         # Validation loop
@@ -205,7 +261,7 @@ if __name__ == '__main__':
         val_accuracies = []
         val_bleu_scores = []
         val_rouge_scores = []
-        val_progress_bar = tqdm(val_loader, desc=f'Validation Epoch {epoch+1}', leave=False)
+        val_progress_bar = tqdm(val_loader, desc=f'Validation Epoch {epoch + 1}', leave=False)
         with torch.no_grad():
             for i, batch in enumerate(val_progress_bar):
                 input_ids, attention_mask = batch
@@ -243,7 +299,8 @@ if __name__ == '__main__':
                 candidate_tokens = candidate.split() if isinstance(candidate, str) else candidate
 
                 # Calculate BLEU score
-                bleu_score = sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=SmoothingFunction().method7)
+                bleu_score = sentence_bleu([reference_tokens], candidate_tokens,
+                                           smoothing_function=SmoothingFunction().method7)
 
                 # Prepare inputs for ROUGE score calculation
                 # Join tokens into a string if they're not already a string
@@ -265,7 +322,9 @@ if __name__ == '__main__':
                 val_bleu_scores.append(bleu_score)
                 val_rouge_scores.append(average_f1_score_rouge_l)
 
-                val_progress_bar.set_postfix({'loss': loss.item(), 'perplexity': perplexity, 'accuracy': accuracy, 'bleu_score': bleu_score, 'rouge_score': average_f1_score_rouge_l})
+                val_progress_bar.set_postfix(
+                    {'loss': loss.item(), 'perplexity': perplexity, 'accuracy': accuracy, 'bleu_score': bleu_score,
+                     'rouge_score': average_f1_score_rouge_l})
         val_progress_bar.close()
 
         # Calculate average metrics for training and validation
@@ -273,7 +332,7 @@ if __name__ == '__main__':
         avg_train_accuracy = sum(train_accuracies) / len(train_accuracies)
         avg_train_bleu = sum(train_bleu_scores) / len(train_bleu_scores)
         avg_train_rouge = sum(train_rouge_scores) / len(train_rouge_scores)
-        
+
         avg_val_loss = sum(val_losses) / len(val_losses)
         avg_val_perplexity = sum(val_perplexities) / len(val_perplexities)
         avg_val_accuracy = sum(val_accuracies) / len(val_accuracies)
@@ -281,7 +340,7 @@ if __name__ == '__main__':
         avg_val_rouge = sum(val_rouge_scores) / len(val_rouge_scores)
 
         wandb.log({
-            'lr'        : curr_lr,
+            'lr': curr_lr,
             'avg_train_perplexity': avg_train_perplexity,
             'avg_train_accuracy': avg_train_accuracy,
             'avg_train_bleu': avg_train_bleu,
@@ -294,8 +353,10 @@ if __name__ == '__main__':
         })
 
         # Print or log the metrics
-        print(f"Epoch: {epoch+1}, Train Loss: {loss.item()}, Train Perplexity: {avg_train_perplexity}, Train Accuracy: {avg_train_accuracy}, Train BLEU: {avg_train_bleu}, Train ROUGE: {avg_train_rouge}")
-        print(f"Epoch: {epoch+1}, Validation Loss: {avg_val_loss}, Validation Perplexity: {avg_val_perplexity}, Validation Accuracy: {avg_val_accuracy}, Validation BLEU: {avg_val_bleu}, Validation ROUGE: {avg_val_rouge}")
+        print(
+            f"Epoch: {epoch + 1}, Train Loss: {loss.item()}, Train Perplexity: {avg_train_perplexity}, Train Accuracy: {avg_train_accuracy}, Train BLEU: {avg_train_bleu}, Train ROUGE: {avg_train_rouge}")
+        print(
+            f"Epoch: {epoch + 1}, Validation Loss: {avg_val_loss}, Validation Perplexity: {avg_val_perplexity}, Validation Accuracy: {avg_val_accuracy}, Validation BLEU: {avg_val_bleu}, Validation ROUGE: {avg_val_rouge}")
 
         # Save the model
         torch.save(model.state_dict(), 'gpt2_story_generator.pth')
